@@ -1,0 +1,13 @@
+[Unit]
+AssertPathExists=%h
+
+[Service]
+PrivateTmp=true
+WorkingDirectory=/tmp
+NoNewPrivileges=true
+Restart=always
+Environment="NM_DBUS_CONNECTION_NOTIFIER_CONFIG=%h/.config/network_manager_connection_notifierrc"
+ExecStart=/usr/bin/network-manager-connection-notifier
+
+[Install]
+WantedBy=default.target

@@ -1,0 +1,25 @@
+[package]
+name = "network-manager-connection-notifier"
+description = "Connect to network manager through dbus to execute command on connections change"
+version = "0.1.0"
+authors = ["Hugues Morisset <morisset.hugues@gmail.com>"]
+edition = "2018"
+
+# See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
+
+[dependencies]
+env_logger = "0.6.0"
+log = "0.4.8"
+anyhow = "1.0.28"
+thiserror = "1.0.15"
+clap = "2.33.0"
+serde = "1.0.104"
+serde_derive = "1.0.104"
+toml = "0.5.6"
+dbus = { version = "0.8.2", features=["futures"] }
+dbus-tokio = "0.5.1"
+tokio = {version = "0.2.4", features=["time", "macros", "io-driver", "rt-core"]}
+futures = "0.3.4"
+
+[dev-dependencies]
+cargo-husky = { version = "1.5.0", default-features = false, features = ["prepush-hook" , "run-cargo-test", "run-cargo-check", "run-cargo-clippy", "run-cargo-fmt"] }

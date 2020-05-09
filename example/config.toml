@@ -1,0 +1,5 @@
+[connections.6553961d-d257-48e5-b2d9-2b9044f5952b]
+name = "Company VPN"
+context = "sub.dom.company nope.company"
+up-script = "ssh_canonicalization_gen.sh up"
+down-script = "ssh_canonicalization_gen.sh down"
