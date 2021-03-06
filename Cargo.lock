@@ -336,8 +336,8 @@ dependencies = [
 ]
 
 [[package]]
-name = "network-manager-connection-notifier"
-version = "0.1.0"
+name = "network-manager-connection-action"
+version = "1.0.0"
 dependencies = [
  "anyhow",
  "cargo-husky",

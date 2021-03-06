@@ -3,14 +3,14 @@
 set -uo pipefail
 
 STATIC_DOMAINS_FILE="$HOME/.ssh/static_canonical_domains.conf"
-OUTPUT_DOMAINS_FILE="$HOME/.ssh/tmp/canonical_domains.conf"
+CANONICAL_CONFIG="$HOME/.ssh/tmp/canonical_domains.conf"
 
 ACTION="$1"
 CONNECTION_NAME="${2:-$CONNECTION_NAME}"
-CONNECTION_CONTEXT="${3:-$CONNECTION_CONTEXT}"
+DOMAINS="${3:-$CONNECTION_CONTEXT}"
 
-# Will add or remove $CONNECTION_CONTEXT domains from $OUTPUT_DOMAINS_FILE depending of $ACTION
-# Domains in $STATIC_DOMAINS_FILE will still be present
+# Add or remove DOMAINS from CANONICAL_CONFIG depending on $ACTION (up/down)
+# Domains in $STATIC_DOMAINS_FILE will always be included
 # Example of `.ssh/config`:
 # ```
 # # Don't canonicalize host with dots (assume there are already full hostname)
@@ -28,7 +28,7 @@ CONNECTION_CONTEXT="${3:-$CONNECTION_CONTEXT}"
 # ```
 
 current_domains() {
-    cat "$OUTPUT_DOMAINS_FILE" | tr " " "\n" | sed '1d'
+    cat "$CANONICAL_CONFIG" | tr " " "\n" | sed '1d'
 }
 
 static_domains() {
@@ -41,16 +41,17 @@ static_domains() {
 context_domains() {
     if [ "$1" = "up" ]; then
         cat
-        printf "%s" "$CONNECTION_CONTEXT" | tr " " "\n"
+        printf "%s" "$DOMAINS" | tr " " "\n"
     elif [ "$1" = "down" ]; then
-        cat | grep -vf <(printf "%s" "$CONNECTION_CONTEXT" | tr " " "\n")
+        cat | grep -vf <(printf "%s" "$DOMAINS" | tr " " "\n")
     fi
 }
 
+# Generate file
 ( ( (printf "%s\n" "CanonicalDomains"; current_domains; static_domains) \
     | context_domains "$ACTION" \
     | sort -u | tr "\n" " "); printf "\n") \
- | tee "$OUTPUT_DOMAINS_FILE"
+ | tee "$CANONICAL_CONFIG"
 
 # Delete gen file if there is no entry
-grep -E "^CanonicalDomains $" "$OUTPUT_DOMAINS_FILE" >/dev/null && rm "$OUTPUT_DOMAINS_FILE"
+grep -E "^CanonicalDomains $" "$CANONICAL_CONFIG" >/dev/null && rm "$CANONICAL_CONFIG"

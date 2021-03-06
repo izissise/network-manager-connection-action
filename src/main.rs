@@ -20,7 +20,7 @@ use std::process::Command;
 mod config;
 use config::{Config, ConnectionConfig};
 
-const CONFIG_FILE_ENV: &str = "NM_DBUS_CONNECTION_NOTIFIER_CONFIG";
+const CONFIG_FILE_ENV: &str = "NM_DBUS_CONNECTION_ACTION_CONFIG";
 // const DBUS_NM_PATH: &str = "/org/freedesktop/NetworkManager";
 const DBUS_NM_OBJECT_NAME: &str = "org.freedesktop.NetworkManager";
 const DEFAULT_TIMEOUT: u64 = 1000;
