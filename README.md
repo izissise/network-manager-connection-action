@@ -13,16 +13,15 @@ cargo build --release
 cp target/release/network-manager-connection-action /usr/bin/network-manager-connection-action
 ```
 
-
 ## Config
 
-The systemd example put the config file here `$HOME/.config/network_manager_connection_actionrc`
+Create a config file, example `$HOME/.config/network_manager_connection_actionrc`
 
-The config contains network manager uuid that correspond to a connection.
+Config contains network manager uuid that correspond to an existing connection.
 
-You can find connections's uuid using `nmcli c`
+You can find connections's UUID using `nmcli c`
 
-For each connections one can pass a name and a context that will be available in the scripts
+For each connection's config you can choose a command and a context, see examples
 
 ## Systemd autostart
 
@@ -42,6 +41,8 @@ journalctl --user -fu network-manager-connection-action.service
 ## Future
 
 Use systemd varlink interface
+
+At start the program could query already connected connections and apply configuration
 
 The code and functionality could be improved in many ways, don't hesitate to open merge requests :)
 
