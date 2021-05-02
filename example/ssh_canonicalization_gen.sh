@@ -54,4 +54,6 @@ context_domains() {
  | tee "$CANONICAL_CONFIG"
 
 # Delete gen file if there is no entry
-grep -E "^CanonicalDomains $" "$CANONICAL_CONFIG" >/dev/null && rm "$CANONICAL_CONFIG"
+(grep -E "^CanonicalDomains $" "$CANONICAL_CONFIG" >/dev/null && rm "$CANONICAL_CONFIG")
+
+exit 0

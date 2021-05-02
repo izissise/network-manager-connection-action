@@ -6,6 +6,18 @@ Listen connections/deconnections using network-manager's dbus interface and exec
 
 One possible use case is adding auto ssh canonicalization for company domains when connected to company vpn, this usage can be found in `example` directory.
 
+## Example run
+
+Output when configured to run with canonicalization on a vpn connection and connecting/disconnecting from NetworkManager:
+```
+<user>$ ./target/debug/network-manager-connection-action -c example/config.toml
+[2021-05-02T13:51:45Z INFO  network_manager_connection_action] Watching for NetworkManager events
+[2021-05-02T13:53:41Z INFO  network_manager_connection_action] Entreprise VPN Up
+CanonicalDomains public.entreprise.com internal.entreprise.com anotherdomains.fromvpn
+[2021-05-02T13:56:21Z INFO  network_manager_connection_action] Entreprise VPN Down
+CanonicalDomains public.entreprise.com
+```
+
 ## Build and Install
 
 ```
