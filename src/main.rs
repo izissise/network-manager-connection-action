@@ -1,7 +1,10 @@
 use anyhow::{anyhow, Result};
 use clap::{crate_name, crate_version, App as Clapp, Arg};
 use log::*;
-use std::{env::set_var, env::var};
+use std::{
+    collections::HashMap, env::set_var, env::var, pin::Pin, process::Stdio, sync::Arc,
+    time::Duration,
+};
 
 use dbus::{
     message::MatchRule,
@@ -9,11 +12,9 @@ use dbus::{
     Path,
 };
 use dbus_tokio::connection;
-use futures::{channel, stream::StreamExt};
+use futures::{channel::mpsc::channel, prelude::*, stream::SelectAll};
 
-use std::collections::HashMap;
-use std::process::Command;
-use std::time::Duration;
+use tokio::process::{Child, Command};
 
 mod config;
 use config::{Config, ConnectionConfig};
@@ -35,33 +36,23 @@ enum ConnectionEvent {
 
 type DbusPath = Path<'static>;
 type DbusPathMessage = (dbus::message::Message, (DbusPath,));
-type DbusPathChannel = channel::mpsc::UnboundedReceiver<DbusPathMessage>;
-
-/// Dbus event stream
-struct DbusEventStream {
-    /// Stop watching events token
-    signal: MsgMatch,
-    /// Actual stream
-    stream: DbusPathChannel,
-}
-
-impl DbusEventStream {
-    fn from_dbus_match((signal, stream): (MsgMatch, DbusPathChannel)) -> Self {
-        Self { signal, stream }
-    }
-}
+type IfaceEvStream =
+    SelectAll<Pin<Box<(dyn Stream<Item = (ConnectionEvent, DbusPathMessage)> + Send)>>>;
 
 /// Watch for dbus events and execute user's scripts
 struct Watcher {
     /// Dbus Connection
-    conn: std::sync::Arc<dbus::nonblock::SyncConnection>,
+    conn: Arc<dbus::nonblock::SyncConnection>,
     /// Map connection uuid to their config
     user_config_map: HashMap<String, ConnectionConfig>,
     /// Map nm devices to their uuid
     up_map: HashMap<DbusPath, String>,
-    /// Event streams
-    iface_add_ev: DbusEventStream,
-    iface_del_ev: DbusEventStream,
+    /// Stop watching signal events token
+    iface_add_signal: MsgMatch,
+    /// Stop watching signal events token
+    iface_del_signal: MsgMatch,
+    /// Event stream
+    iface_ev_stream: IfaceEvStream,
 }
 
 impl Watcher {
@@ -77,26 +68,33 @@ impl Watcher {
         });
 
         // Create dbus InterfacesAdded event stream
-        let iface_add_ev = DbusEventStream::from_dbus_match(
-            conn.clone()
-                .add_match(MatchRule::new_signal(
-                    "org.freedesktop.DBus.ObjectManager",
-                    "InterfacesAdded",
-                ))
-                .await?
-                .stream(),
-        );
+        let (iface_add_signal, iface_add_stream) = conn
+            .clone()
+            .add_match(MatchRule::new_signal(
+                "org.freedesktop.DBus.ObjectManager",
+                "InterfacesAdded",
+            ))
+            .await?
+            .stream();
 
         // Create dbus InterfacesRemoved event stream
-        let iface_del_ev = DbusEventStream::from_dbus_match(
-            conn.clone()
-                .add_match(MatchRule::new_signal(
-                    "org.freedesktop.DBus.ObjectManager",
-                    "InterfacesRemoved",
-                ))
-                .await?
-                .stream(),
-        );
+        let (iface_del_signal, iface_del_stream) = conn
+            .clone()
+            .add_match(MatchRule::new_signal(
+                "org.freedesktop.DBus.ObjectManager",
+                "InterfacesRemoved",
+            ))
+            .await?
+            .stream();
+
+        // Merge event stream into one
+        let add_ev = iface_add_stream
+            .map(|msg| (ConnectionEvent::Up, msg))
+            .boxed();
+        let del_ev = iface_del_stream
+            .map(|msg| (ConnectionEvent::Down, msg))
+            .boxed();
+        let iface_ev_stream = stream::select_all(vec![add_ev, del_ev]);
 
         let user_config_map = config.connections;
         let up_map = HashMap::new();
@@ -105,33 +103,45 @@ impl Watcher {
             conn,
             user_config_map,
             up_map,
-            iface_add_ev,
-            iface_del_ev,
+            iface_add_signal,
+            iface_del_signal,
+            iface_ev_stream,
         })
     }
 
     async fn run(&mut self) -> Result<()> {
         // TODO Call all already active connections
         // TODO setup a unix signal handler and use a channel to quit service softly
+
+        // Keep track of spawned processes
+        let (mut child_process_in, child_process_out) = channel(2);
+        let mut process_wait = child_process_out.map(|mut p: Child| async move { p.wait().await });
         loop {
-            let (act, msg) = tokio::select! {
-                Some(msg) = self.iface_add_ev.stream.next() => {
-                    (ConnectionEvent::Up, msg)
+            tokio::select! {
+                Some((act, msg)) = self.iface_ev_stream.next() => {
+                    let connection = (msg.1).0;
+                    // Consider only active connections
+                    if connection.starts_with(DBUS_NM_ACTIVE_CONNECTION_PATH) {
+                        // if the event correspond to something in up_map
+                        // we call associated command
+                        if let Some(conn_uuid) = self.connection_event(act.clone(), connection).await {
+                            if let Some(child) = self.run_conn_cmd(&conn_uuid, &act).await {
+                                child_process_in.send(child).await?;
+                            }
+                        }
+                    }
                 },
-                Some(msg) = self.iface_del_ev.stream.next() => {
-                    (ConnectionEvent::Down, msg)
+                Some(child) = process_wait.next() => {
+                    let ex_code = child.await?;
+                    if !ex_code.success() {
+                        match ex_code.code() {
+                            Some(code) => warn!("Command exited with status {}", code),
+                            None => warn!("Command terminated by signal"),
+                        };
+                    }
                 },
                 else => break,
             };
-            let connection = (msg.1).0;
-            // Consider only active connections
-            if connection.starts_with(DBUS_NM_ACTIVE_CONNECTION_PATH) {
-                // if the event correspond to something in up_map
-                // we call associated command
-                if let Some(conn_uuid) = self.connection_event(act.clone(), connection).await {
-                    self.run_conn_cmd(&conn_uuid, &act).await;
-                }
-            }
         }
 
         // Clean before exit
@@ -142,10 +152,10 @@ impl Watcher {
     async fn teardown(&mut self) -> Result<()> {
         info!("Tearing down dbus event streams");
         self.conn
-            .remove_match(self.iface_add_ev.signal.token())
+            .remove_match(self.iface_add_signal.token())
             .await?;
         self.conn
-            .remove_match(self.iface_del_ev.signal.token())
+            .remove_match(self.iface_del_signal.token())
             .await?;
         Ok(())
     }
@@ -180,7 +190,7 @@ impl Watcher {
         }
     }
 
-    async fn run_conn_cmd(&self, uuid: &str, action: &ConnectionEvent) {
+    async fn run_conn_cmd(&self, uuid: &str, action: &ConnectionEvent) -> Option<Child> {
         if let Some(conn_params) = self.user_config_map.get(uuid) {
             let cmd = match action {
                 ConnectionEvent::Up => &conn_params.up_script,
@@ -192,8 +202,13 @@ impl Watcher {
                 .arg(cmd)
                 .env("CONNECTION_NAME", &conn_params.name)
                 .env("CONNECTION_CONTEXT", &conn_params.context)
+                .stdin(Stdio::null())
+                .stdout(Stdio::inherit())
+                .stderr(Stdio::inherit())
                 .spawn()
-                .expect("Command failed.");
+                .ok_or_log_err("Command failed:")
+        } else {
+            None
         }
     }
 }
