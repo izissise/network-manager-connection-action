@@ -1,9 +1,15 @@
 [package]
 name = "network-manager-connection-action"
-description = "Connect to network manager through dbus to execute command on connections change"
+description = "Execute commands on connections change using DBus network manager events"
 version = "1.1.0"
 authors = ["Hugues Morisset <morisset.hugues@gmail.com>"]
 edition = "2018"
+readme = "README.md"
+license-file = "LICENSE.txt"
+repository = "https://github.com/izissise/network-manager-connection-action"
+homepage = "https://github.com/izissise/network-manager-connection-action"
+category = ["config", "os::linux-apis"]
+keywords = ["systemd", "automation", "networking", "utility", "system"]
 
 [dependencies]
 env_logger = "0.6"
