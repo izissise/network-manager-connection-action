@@ -1,9 +1,9 @@
 [package]
 name = "network-manager-connection-action"
 description = "Execute commands on connections change using DBus network manager events"
-version = "1.2.0"
+version = "1.2.1"
 authors = ["Hugues Morisset <morisset.hugues@gmail.com>"]
-edition = "2018"
+edition = "2021"
 readme = "README.md"
 license = "BSD-2-Clause"
 repository = "https://github.com/izissise/network-manager-connection-action"

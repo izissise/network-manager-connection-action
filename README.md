@@ -2,21 +2,21 @@
 
 # network-manager-connection-action
 
-Listen connections/deconnections using network-manager's dbus interface and execute specified commands without needing root access
+Listen connections/deconnections using network-manager's dbus interface and execute specified commands without the need of root access
 
 ## Use case
 
-One possible use case is adding auto ssh canonicalization for company domains when connected to company vpn, this usage can be found in `example` directory.
+One possible use case is adding automatic [ssh canonicalization](https://dotfiles.tnetconsulting.net/articles/2016/0109/ssh-canonicalization.html) for company domains when connecting to company VPN, this usage can be found in `example` directory.
 
 ## Example run
 
 Output when configured to run with canonicalization on a vpn connection and connecting/disconnecting from NetworkManager:
 ```
-<user>$ ./target/debug/network-manager-connection-action -c example/config.toml
-[2021-05-02T13:51:45Z INFO  network_manager_connection_action] Watching for NetworkManager events
-[2021-05-02T13:53:41Z INFO  network_manager_connection_action] Entreprise VPN Up
+<user>$ network-manager-connection-action -c example/config.toml
+[2021-05-02T13:51:45Z INFO] Watching for NetworkManager events
+[2021-05-02T13:53:41Z INFO] Entreprise VPN Up
 CanonicalDomains public.entreprise.com internal.entreprise.com anotherdomains.fromvpn
-[2021-05-02T13:56:21Z INFO  network_manager_connection_action] Entreprise VPN Down
+[2021-05-02T13:56:21Z INFO] Entreprise VPN Down
 CanonicalDomains public.entreprise.com
 ```
 
@@ -29,11 +29,13 @@ cp target/release/network-manager-connection-action /usr/bin/network-manager-con
 
 ## Config
 
+You need the UUID of networks you want to watch
+
+You can find connections's UUID using `nmcli c`
+
 Create a config file, example `$HOME/.config/network_manager_connection_actionrc`
 
 Config contains network manager uuid that correspond to an existing connection.
-
-You can find connections's UUID using `nmcli c`
 
 For each connection's config you can choose a command and a context, see examples
 
