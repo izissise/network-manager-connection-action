@@ -3,3 +3,9 @@ name = "Company VPN"
 context = "sub.dom.company nope.company"
 up-script = "ssh_canonicalization_gen.sh up"
 down-script = "ssh_canonicalization_gen.sh down"
+
+[connections."eth0"]
+name = "Eth0"
+context = ""
+up-script = "systemctl --user restart krb.service"
+down-script = "systemctl --user stop krb.service"
