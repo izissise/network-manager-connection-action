@@ -45,7 +45,7 @@ struct Watcher {
     conn: Arc<dbus::nonblock::SyncConnection>,
     /// Map connection uuid to their config
     user_config_map: HashMap<String, ConnectionConfig>,
-    /// Map nm devices to their (id,uuid)
+    /// Map nm devices to their (id, uuid)
     up_map: HashMap<DbusPath, (String, String)>,
     /// Stop watching signal events token
     iface_add_signal: MsgMatch,
@@ -124,7 +124,7 @@ impl Watcher {
                     if connection.starts_with(DBUS_NM_ACTIVE_CONNECTION_PATH) {
                         // if the event correspond to something in up_map
                         // we call associated command
-                        if let Some((conn_id,conn_uuid)) = self.connection_event(act.clone(), connection).await {
+                        if let Some((conn_id, conn_uuid)) = self.connection_event(act.clone(), connection).await {
                             if let Some(child) = self.run_conn_cmd(&conn_id, &conn_uuid, &act).await {
                                 child_process_in.send(child).await?;
                             }
@@ -160,7 +160,7 @@ impl Watcher {
         Ok(())
     }
 
-    async fn connection_uuid(&self, act_conn: &DbusPath) -> Option<(String,String)> {
+    async fn connection_uuid(&self, act_conn: &DbusPath) -> Option<(String, String)> {
         let dbus_endpoint = "org.freedesktop.NetworkManager.Connection.Active";
         let conn_proxy = Proxy::new(
             DBUS_NM_OBJECT_NAME,
@@ -169,16 +169,18 @@ impl Watcher {
             self.conn.clone(),
         );
 
-        match (conn_proxy
-            .get::<String>(dbus_endpoint, "Id")
-            .await
-            .ok_or_log_err("connection_Id:"),
+        match (
             conn_proxy
-            .get::<String>(dbus_endpoint, "Uuid")
-            .await
-            .ok_or_log_err("connection_uuid:")) {
-                (Some(a), Some(b)) => Some((a, b)),
-                _ => None
+                .get::<String>(dbus_endpoint, "Id")
+                .await
+                .ok_or_log_err("connection_Id:"),
+            conn_proxy
+                .get::<String>(dbus_endpoint, "Uuid")
+                .await
+                .ok_or_log_err("connection_uuid:"),
+        ) {
+            (Some(a), Some(b)) => Some((a, b)),
+            _ => None,
         }
     }
 
@@ -186,15 +188,15 @@ impl Watcher {
         &mut self,
         action: ConnectionEvent,
         nm_conn: DbusPath,
-    ) -> Option<(String,String)> {
+    ) -> Option<(String, String)> {
         match action {
             // Iface is up
-            ConnectionEvent::Up => 
-                self.connection_uuid(&nm_conn).await.map(|(id,uuid)| {
-                    self.up_map.entry(nm_conn).or_insert_with(|| (id.clone(),uuid.clone()));
-                    (id, uuid)
-                })
-            ,
+            ConnectionEvent::Up => self.connection_uuid(&nm_conn).await.map(|(id, uuid)| {
+                self.up_map
+                    .entry(nm_conn)
+                    .or_insert_with(|| (id.clone(), uuid.clone()));
+                (id, uuid)
+            }),
             // Iface is down
             ConnectionEvent::Down => self.up_map.remove_entry(&nm_conn).map(|e| e.1),
         }
@@ -211,7 +213,7 @@ impl Watcher {
     }
 
     async fn run_conn_cmd(&self, id: &str, uuid: &str, action: &ConnectionEvent) -> Option<Child> {
-        if let Some(conn_params) = self.get_conn_params(id, uuid)  {
+        if let Some(conn_params) = self.get_conn_params(id, uuid) {
             let cmd = match action {
                 ConnectionEvent::Up => &conn_params.up_script,
                 ConnectionEvent::Down => &conn_params.down_script,
