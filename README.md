@@ -1,4 +1,4 @@
-# network-manager-connection-action [![Crates.io](https://img.shields.io/crates/v/network-manager-connection-action)](https://https://crates.io/crates/network-manager-connection-action)
+# network-manager-connection-action [![Crates.io](https://img.shields.io/crates/v/network-manager-connection-action)](https://crates.io/crates/network-manager-connection-action)
 
 Listen connections/deconnections using network-manager's dbus interface and execute specified commands without the need of root access
 
