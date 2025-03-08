@@ -1,19 +1,14 @@
-use anyhow::{anyhow, Result};
-use clap::{crate_name, crate_version, App as Clapp, Arg};
-use log::*;
-use std::{
-    collections::HashMap, env::set_var, env::var, pin::Pin, process::Stdio, sync::Arc,
-    time::Duration,
-};
-
+use anyhow::{Result, anyhow};
+use clap::{Arg, Command as ClappCmd, crate_name, crate_version};
 use dbus::{
-    message::MatchRule,
-    nonblock::{stdintf::org_freedesktop_dbus::Properties, MsgMatch, Proxy},
     Path,
+    message::MatchRule,
+    nonblock::{MsgMatch, Proxy, stdintf::org_freedesktop_dbus::Properties},
 };
 use dbus_tokio::connection;
 use futures::{channel::mpsc::channel, prelude::*, stream::SelectAll};
-
+use log::*;
+use std::{collections::HashMap, env::var, pin::Pin, process::Stdio, sync::Arc, time::Duration};
 use tokio::process::{Child, Command};
 
 mod config;
@@ -238,19 +233,20 @@ impl Watcher {
 #[tokio::main]
 pub async fn main() -> Result<()> {
     // Load CLI parameters from yaml file
-    let cli = Clapp::new(crate_name!()).version(crate_version!()).arg(
-        Arg::with_name("config")
-            .short("c")
+    let cli = ClappCmd::new(crate_name!()).version(crate_version!()).arg(
+        Arg::new("config")
+            .short('c')
             .long("config")
             .value_name("FILE")
             .help("Sets a custom config file")
-            .takes_value(true),
+            .required(false),
     );
+
     let _app_name = cli.get_name().to_owned();
     let matches = cli.get_matches();
 
     // Retrieve config file path
-    let config_filename = match matches.value_of("config") {
+    let config_filename = match matches.get_one::<String>("config") {
         Some(c) => Ok(c.to_owned()),
         None => var(CONFIG_FILE_ENV).map_err(|_e| {
             anyhow!(
@@ -263,10 +259,8 @@ pub async fn main() -> Result<()> {
     // Parse configuration
     let config = Config::from_file(&config_filename)?;
 
-    // Set logging verbosity
-    set_var("RUST_LOG", "info");
     // Initialize logger
-    env_logger::init();
+    env_logger::Builder::from_env(env_logger::Env::default().default_filter_or("info")).init();
 
     let mut watcher = Watcher::from_config(config).await?;
     info!("Watching for NetworkManager events");

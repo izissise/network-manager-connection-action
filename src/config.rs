@@ -1,8 +1,7 @@
 //! Configuration related structures
 use anyhow::Result;
-use serde_derive::Deserialize;
-use std::collections::HashMap;
-use std::fs::read_to_string;
+use serde::Deserialize;
+use std::{collections::HashMap, fs::read_to_string};
 
 #[derive(Debug, Clone, Deserialize)]
 /// The global configuration
